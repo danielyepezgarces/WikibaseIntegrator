@@ -25,7 +25,7 @@ class _Login:
     """
 
     @wbi_backoff()
-    def __init__(self, session: Optional[Session] = None, mediawiki_api_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None):
+    def __init__(self, session: Optional[Session] = None, mediawiki_api_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None, verify: Optional[bool] = None):
         """
         This class handles several types of login procedures. Either use user and pwd authentication or OAuth.
         Wikidata clientlogin can also be used. If using one method, do NOT pass parameters for another method.
@@ -34,6 +34,7 @@ class _Login:
         :param mediawiki_api_url: The URL to the MediaWiki API (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
+        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Default is None (uses requests default behavior).
         """
 
         self.session: Session = session or Session()
@@ -46,6 +47,10 @@ class _Login:
         self.session.headers.update({
             'User-Agent': get_user_agent(user_agent or (str(config['USER_AGENT']) if config['USER_AGENT'] is not None else None))
         })
+
+        # Set verify on the session if provided
+        if verify is not None:
+            self.session.verify = verify
 
         self.generate_edit_credentials()
 
@@ -106,7 +111,7 @@ class _Login:
 class OAuth2(_Login):
     @wbi_backoff()
     def __init__(self, consumer_token: Optional[str] = None, consumer_secret: Optional[str] = None, mediawiki_api_url: Optional[str] = None, mediawiki_rest_url: Optional[str] = None, token_renew_period: int = 1800,
-                 user_agent: Optional[str] = None):
+                 user_agent: Optional[str] = None, verify: Optional[bool] = None):
         """
         This class is used to interact with the OAuth2 API.
 
@@ -116,6 +121,7 @@ class OAuth2(_Login):
         :param mediawiki_rest_url: The URL to the MediaWiki REST API (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
+        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Default is None (uses requests default behavior).
         """
 
         mediawiki_rest_url = str(mediawiki_rest_url or config['MEDIAWIKI_REST_URL'])
@@ -125,18 +131,20 @@ class OAuth2(_Login):
         }
 
         session = OAuth2Session(client=BackendApplicationClient(client_id=consumer_token))
+        if verify is not None:
+            session.verify = verify
         try:
             session.fetch_token(token_url=mediawiki_rest_url + '/oauth2/access_token', client_id=consumer_token, client_secret=consumer_secret, headers=headers)
         except InvalidClientError as err:
             raise LoginError(err) from err
-        super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url)
+        super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url, verify=verify)
 
 
 class OAuth1(_Login):
 
     @wbi_backoff()
     def __init__(self, consumer_token: Optional[str] = None, consumer_secret: Optional[str] = None, access_token: Optional[str] = None, access_secret: Optional[str] = None, callback_url: str = 'oob',
-                 mediawiki_api_url: Optional[str] = None, mediawiki_index_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None):
+                 mediawiki_api_url: Optional[str] = None, mediawiki_index_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None, verify: Optional[bool] = None):
         """
         This class is used to interact with the OAuth1 API.
 
@@ -149,6 +157,7 @@ class OAuth1(_Login):
         :param mediawiki_index_url: The URL to the MediaWiki index (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
+        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Default is None (uses requests default behavior).
         """
 
         mediawiki_index_url = str(mediawiki_index_url or config['MEDIAWIKI_INDEX_URL'])
@@ -156,11 +165,14 @@ class OAuth1(_Login):
         if access_token and access_secret:
             # OAuth procedure, based on https://www.mediawiki.org/wiki/OAuth/Owner-only_consumers#Python
             session = OAuth1Session(client_key=consumer_token, client_secret=consumer_secret, resource_owner_key=access_token, resource_owner_secret=access_secret)
-            super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url)
+            if verify is not None:
+                session.verify = verify
+            super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url, verify=verify)
         else:
             # Oauth procedure, based on https://www.mediawiki.org/wiki/OAuth/For_Developers
             # Construct a "consumer" from the key/secret provided by MediaWiki
             self.oauth1_consumer_token = ConsumerToken(consumer_token, consumer_secret)
+            self.oauth1_verify = verify  # Store for later use in continue_oauth
 
             # Construct handshaker with wiki URI and consumer
             self.handshaker = Handshaker(mw_uri=mediawiki_index_url, consumer_token=self.oauth1_consumer_token, callback=callback_url,
@@ -198,6 +210,8 @@ class OAuth1(_Login):
         # input the access token to return a csrf (edit) token
         self.session = OAuth1Session(client_key=self.oauth1_consumer_token.key, client_secret=self.oauth1_consumer_token.secret, resource_owner_key=access_token.key,
                                      resource_owner_secret=access_token.secret)
+        if hasattr(self, 'oauth1_verify') and self.oauth1_verify is not None:
+            self.session.verify = self.oauth1_verify
         self.generate_edit_credentials()
 
 
@@ -212,7 +226,7 @@ class Login(_Login):
         :param mediawiki_api_url: The URL to the MediaWiki API (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
-        :param kwargs: Additional parameters to pass to the requests.sessions.Session.post method, such as headers or proxies.
+        :param kwargs: Additional parameters to pass to the requests.sessions.Session.post method, such as headers, proxies, or verify (for SSL certificate verification).
         """
 
         mediawiki_api_url = str(mediawiki_api_url or config['MEDIAWIKI_API_URL'])
@@ -234,6 +248,9 @@ class Login(_Login):
         filtered_kwargs = {key: value for key, value in kwargs.items() if key in allowed_kwargs}
         if len(filtered_kwargs) < len(kwargs):
             log.warning("Unsupported kwargs were ignored: %s", set(kwargs) - allowed_kwargs)
+        
+        # Extract verify parameter to pass to parent class
+        verify = filtered_kwargs.get('verify')
 
         # get login token
         login_token = session.post(mediawiki_api_url, data=params_login, headers=headers, **filtered_kwargs).json()['query']['tokens']['logintoken']
@@ -257,7 +274,7 @@ class Login(_Login):
             for message in login_result['warnings']:
                 log.warning(f"* {message}: {login_result['warnings'][message]['*']}")
 
-        super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url)
+        super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url, verify=verify)
 
 
 class Clientlogin(_Login):
@@ -271,7 +288,7 @@ class Clientlogin(_Login):
         :param mediawiki_api_url: The URL to the MediaWiki API (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
-        :param kwargs: Additional parameters to pass to the requests.sessions.Session.post method, such as headers or proxies.
+        :param kwargs: Additional parameters to pass to the requests.sessions.Session.post method, such as headers, proxies, or verify (for SSL certificate verification).
         """
 
         mediawiki_api_url = str(mediawiki_api_url or config['MEDIAWIKI_API_URL'])
@@ -293,6 +310,9 @@ class Clientlogin(_Login):
         filtered_kwargs = {key: value for key, value in kwargs.items() if key in allowed_kwargs}
         if len(filtered_kwargs) < len(kwargs):
             log.warning("Unsupported kwargs were ignored: %s", set(kwargs) - allowed_kwargs)
+        
+        # Extract verify parameter to pass to parent class
+        verify = filtered_kwargs.get('verify')
 
         # get login token
         login_token = session.post(mediawiki_api_url, data=params_login, headers=headers, **filtered_kwargs).json()['query']['tokens']['logintoken']
@@ -325,7 +345,7 @@ class Clientlogin(_Login):
             for message in login_result['warnings']:
                 log.warning(f"* {message}: {login_result['warnings'][message]['*']}")
 
-        super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url)
+        super().__init__(session=session, token_renew_period=token_renew_period, user_agent=user_agent, mediawiki_api_url=mediawiki_api_url, verify=verify)
 
 
 class LoginError(Exception):
