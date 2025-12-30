@@ -10,6 +10,9 @@ BACKOFF_MAX_VALUE: maximum number of seconds to wait before retrying. wait time 
                    Default: 3600 (one hour)
 USER_AGENT:        Complementary user agent string used for http requests. Both to Wikibase api, query service and others.
                    See: https://foundation.wikimedia.org/wiki/Policy:User-Agent_policy
+VERIFY_SSL:        Whether to verify SSL certificates for HTTPS requests. Set to False to disable verification (e.g., for self-signed certificates).
+                   Default: None (uses requests library default behavior - verify=True)
+                   Note: For authenticated requests, the verify parameter passed to login classes takes precedence.
 """
 
 from typing import Union
@@ -28,5 +31,6 @@ config: dict[str, Union[str, int, None, bool]] = {
     'SPARQL_ENDPOINT_URL': 'https://query.wikidata.org/sparql',
     'WIKIBASE_URL': 'http://www.wikidata.org',
     'DEFAULT_LANGUAGE': 'en',
-    'DEFAULT_LEXEME_LANGUAGE': 'Q1860'
+    'DEFAULT_LEXEME_LANGUAGE': 'Q1860',
+    'VERIFY_SSL': None  # None = use requests default, True = verify, False = don't verify, or str = path to CA bundle
 }
