@@ -1,10 +1,11 @@
 """Integration tests for SSL verification configuration."""
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from requests import Session
 
-from wikibaseintegrator import wbi_login, wbi_config
-from wikibaseintegrator.wbi_helpers import execute_sparql_query, download_entity_ttl
+from wikibaseintegrator import wbi_config, wbi_login
+from wikibaseintegrator.wbi_helpers import download_entity_ttl, execute_sparql_query
 
 
 def test_config_verify_ssl_setting():

@@ -25,7 +25,7 @@ class _Login:
     """
 
     @wbi_backoff()
-    def __init__(self, session: Optional[Session] = None, mediawiki_api_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None, verify: Optional[bool] = None):
+    def __init__(self, session: Optional[Session] = None, mediawiki_api_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None, verify: Optional[bool | str] = None):
         """
         This class handles several types of login procedures. Either use user and pwd authentication or OAuth.
         Wikidata clientlogin can also be used. If using one method, do NOT pass parameters for another method.
@@ -34,7 +34,7 @@ class _Login:
         :param mediawiki_api_url: The URL to the MediaWiki API (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
-        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Default is None (uses requests default behavior).
+        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Can also be a path to a CA bundle file. Default is None (uses requests default behavior).
         """
 
         self.session: Session = session or Session()
@@ -111,7 +111,7 @@ class _Login:
 class OAuth2(_Login):
     @wbi_backoff()
     def __init__(self, consumer_token: Optional[str] = None, consumer_secret: Optional[str] = None, mediawiki_api_url: Optional[str] = None, mediawiki_rest_url: Optional[str] = None, token_renew_period: int = 1800,
-                 user_agent: Optional[str] = None, verify: Optional[bool] = None):
+                 user_agent: Optional[str] = None, verify: Optional[bool | str] = None):
         """
         This class is used to interact with the OAuth2 API.
 
@@ -121,7 +121,7 @@ class OAuth2(_Login):
         :param mediawiki_rest_url: The URL to the MediaWiki REST API (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
-        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Default is None (uses requests default behavior).
+        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Can also be a path to a CA bundle file. Default is None (uses requests default behavior).
         """
 
         mediawiki_rest_url = str(mediawiki_rest_url or config['MEDIAWIKI_REST_URL'])
@@ -144,7 +144,7 @@ class OAuth1(_Login):
 
     @wbi_backoff()
     def __init__(self, consumer_token: Optional[str] = None, consumer_secret: Optional[str] = None, access_token: Optional[str] = None, access_secret: Optional[str] = None, callback_url: str = 'oob',
-                 mediawiki_api_url: Optional[str] = None, mediawiki_index_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None, verify: Optional[bool] = None):
+                 mediawiki_api_url: Optional[str] = None, mediawiki_index_url: Optional[str] = None, token_renew_period: int = 1800, user_agent: Optional[str] = None, verify: Optional[bool | str] = None):
         """
         This class is used to interact with the OAuth1 API.
 
@@ -157,7 +157,7 @@ class OAuth1(_Login):
         :param mediawiki_index_url: The URL to the MediaWiki index (default Wikidata)
         :param token_renew_period: Seconds after which a new token should be requested from the Wikidata server
         :param user_agent: UA string to use for API requests.
-        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Default is None (uses requests default behavior).
+        :param verify: Whether to verify SSL certificates. Set to False to disable certificate verification (e.g., for self-signed certificates). Can also be a path to a CA bundle file. Default is None (uses requests default behavior).
         """
 
         mediawiki_index_url = str(mediawiki_index_url or config['MEDIAWIKI_INDEX_URL'])

@@ -227,7 +227,7 @@ def mediawiki_api_call_helper(data: dict[str, Any], login: _Login | None = None,
 
 
 @wbi_backoff()
-def execute_sparql_query(query: str, prefix: str | None = None, endpoint: str | None = None, user_agent: str | None = None, max_retries: int = 1000, retry_after: int = 60, verify: bool | None = None) -> dict[
+def execute_sparql_query(query: str, prefix: str | None = None, endpoint: str | None = None, user_agent: str | None = None, max_retries: int = 1000, retry_after: int = 60, verify: bool | str | None = None) -> dict[
     str, dict]:
     """
     Static method which can be used to execute any SPARQL query
@@ -238,7 +238,7 @@ def execute_sparql_query(query: str, prefix: str | None = None, endpoint: str | 
     :param user_agent: Set a user agent string for the HTTP header to let the Query Service know who you are.
     :param max_retries: The number time this function should retry in case of header reports.
     :param retry_after: the number of seconds should wait upon receiving either an error code or the Query Service is not reachable.
-    :param verify: Whether to verify SSL certificates. Set to False to disable verification (e.g., for self-signed certificates). Default uses config['VERIFY_SSL'] or requests default.
+    :param verify: Whether to verify SSL certificates. Set to False to disable verification (e.g., for self-signed certificates). Can also be a path to a CA bundle file. Default uses config['VERIFY_SSL'] or requests default.
     :return: The results of the query are returned in JSON format
     """
 
@@ -268,12 +268,17 @@ def execute_sparql_query(query: str, prefix: str | None = None, endpoint: str | 
     
     # Determine verify parameter: use explicit parameter, then config, then requests default
     if verify is None:
-        verify = config.get('VERIFY_SSL')
+        verify_value = config.get('VERIFY_SSL')
+        # Ensure verify_value is bool, str, or None as expected by requests
+        if verify_value is not None and not isinstance(verify_value, (bool, str)):
+            verify_value = None
+    else:
+        verify_value = verify
 
     for _ in range(max_retries):
         try:
-            if verify is not None:
-                response = helpers_session.post(sparql_endpoint_url, params=params, headers=headers, verify=verify)
+            if verify_value is not None:
+                response = helpers_session.post(sparql_endpoint_url, params=params, headers=headers, verify=verify_value)
             else:
                 response = helpers_session.post(sparql_endpoint_url, params=params, headers=headers)
         except requests.exceptions.ConnectionError as e:
@@ -1007,7 +1012,7 @@ def _json2datatype(prop_nr: str, statement: dict, wikibase_url: str | None = Non
     return f()
 
 
-def download_entity_ttl(entity: str, wikibase_url: str | None = None, user_agent: str | None = None, verify: bool | None = None) -> str:
+def download_entity_ttl(entity: str, wikibase_url: str | None = None, user_agent: str | None = None, verify: bool | str | None = None) -> str:
     """
     Downloads the TTL (Terse RDF Triple Language) content of a specific entity from a Wikibase instance.
 
@@ -1017,8 +1022,8 @@ def download_entity_ttl(entity: str, wikibase_url: str | None = None, user_agent
                                   will be used.
     - user_agent (str | None): The user agent string to be used in the HTTP request headers. If None, the default user
                                 agent from the configuration will be used if available.
-    - verify (bool | None): Whether to verify SSL certificates. Set to False to disable verification (e.g., for self-signed certificates). 
-                            Default uses config['VERIFY_SSL'] or requests default.
+    - verify (bool | str | None): Whether to verify SSL certificates. Set to False to disable verification (e.g., for self-signed certificates). 
+                                   Can also be a path to a CA bundle file. Default uses config['VERIFY_SSL'] or requests default.
 
     Returns:
     - str: The TTL content of the requested entity.
@@ -1039,10 +1044,15 @@ def download_entity_ttl(entity: str, wikibase_url: str | None = None, user_agent
     
     # Determine verify parameter: use explicit parameter, then config, then requests default
     if verify is None:
-        verify = config.get('VERIFY_SSL')
+        verify_value = config.get('VERIFY_SSL')
+        # Ensure verify_value is bool, str, or None as expected by requests
+        if verify_value is not None and not isinstance(verify_value, (bool, str)):
+            verify_value = None
+    else:
+        verify_value = verify
 
-    if verify is not None:
-        response = helpers_session.get(wikibase_url + '/entity/' + entity + '.ttl', headers=headers, verify=verify)
+    if verify_value is not None:
+        response = helpers_session.get(wikibase_url + '/entity/' + entity + '.ttl', headers=headers, verify=verify_value)
     else:
         response = helpers_session.get(wikibase_url + '/entity/' + entity + '.ttl', headers=headers)
     response.raise_for_status()

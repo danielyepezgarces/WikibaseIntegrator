@@ -1,6 +1,7 @@
 """Test verify parameter handling in login classes."""
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from requests import Session
 
 from wikibaseintegrator import wbi_login

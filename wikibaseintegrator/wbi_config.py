@@ -32,5 +32,5 @@ config: dict[str, Union[str, int, None, bool]] = {
     'WIKIBASE_URL': 'http://www.wikidata.org',
     'DEFAULT_LANGUAGE': 'en',
     'DEFAULT_LEXEME_LANGUAGE': 'Q1860',
-    'VERIFY_SSL': None  # None = use requests default, True = verify, False = don't verify
+    'VERIFY_SSL': None  # None = use requests default, True = verify, False = don't verify, or str = path to CA bundle
 }
