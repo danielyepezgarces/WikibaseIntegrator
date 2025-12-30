@@ -74,8 +74,9 @@ def mediawiki_api_call(method: str, mediawiki_api_url: str | None = None, sessio
     response = None
     session = session if session else default_session
     
-    # Apply global verify setting if not already set in kwargs and not set on session
-    if 'verify' not in kwargs and config.get('VERIFY_SSL') is not None and not hasattr(session, 'verify'):
+    # Apply global verify setting if not already set in kwargs
+    # Note: Session.verify defaults to True, so we only apply config if explicitly configured
+    if 'verify' not in kwargs and config.get('VERIFY_SSL') is not None:
         kwargs['verify'] = config['VERIFY_SSL']
     
     for n in range(max_retries):
@@ -271,6 +272,7 @@ def execute_sparql_query(query: str, prefix: str | None = None, endpoint: str | 
         verify_value = config.get('VERIFY_SSL')
         # Ensure verify_value is bool, str, or None as expected by requests
         if verify_value is not None and not isinstance(verify_value, (bool, str)):
+            log.warning("Invalid VERIFY_SSL config value (type: %s). Expected bool, str, or None. Using default verification.", type(verify_value).__name__)
             verify_value = None
     else:
         verify_value = verify
@@ -1047,6 +1049,7 @@ def download_entity_ttl(entity: str, wikibase_url: str | None = None, user_agent
         verify_value = config.get('VERIFY_SSL')
         # Ensure verify_value is bool, str, or None as expected by requests
         if verify_value is not None and not isinstance(verify_value, (bool, str)):
+            log.warning("Invalid VERIFY_SSL config value (type: %s). Expected bool, str, or None. Using default verification.", type(verify_value).__name__)
             verify_value = None
     else:
         verify_value = verify
